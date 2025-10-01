@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Shibuya Gang — Private Gallery</title>
+  <style>
+    :root{--bg:#0f1724;--card:#111827;--muted:#9ca3af;--accent:#f43f5e}
+    *{box-sizing:border-box;font-family:Inter,system-ui,Arial;margin:0}
+    body{background:linear-gradient(180deg,#071028 0%, #071427 60%);color:#e6eef8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .app{width:100%;max-width:980px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    h1{font-size:24px;letter-spacing:1px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,#ff8a00,#f43f5e);display:grid;place-items:center;font-weight:700;color:#08121b}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:18px;border-radius:12px;box-shadow:0 6px 20px rgba(2,6,23,0.6)}
+    .form-row{display:flex;flex-direction:column;gap:8px}
+    label{font-size:13px;color:var(--muted)}
+    input[type=text],input[type=password]{padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+    button{padding:10px 14px;border-radius:10px;border:0;cursor:pointer;background:var(--accent);color:#fff;font-weight:600}
+    .muted{color:var(--muted);font-size:13px}
+    .hidden{display:none}
+    .uploader{display:flex;gap:12px;align-items:center}
+    .gallery{margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+    .thumb{position:relative;border-radius:10px;overflow:hidden;background:#091021;border:1px solid rgba(255,255,255,0.03)}
+    .thumb img{display:block;width:100%;height:180px;object-fit:cover}
+    .thumb .meta{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,0.45);padding:6px 8px;border-radius:8px;font-size:12px}
+    .controls{display:flex;gap:8px}
+    .text-link{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px;border-radius:8px;color:inherit;cursor:pointer}
+    .topbar{display:flex;gap:10px;align-items:center}
+    .center{display:grid;place-items:center}
+    footer{margin-top:18px;color:var(--muted);font-size:13px}
+    #userList{margin-top:16px;padding:10px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;background:#0d1525}
+    #userList h3{margin-bottom:10px;font-size:16px}
+    #userList ul{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px}
+    #userList li{background:#1c2537;padding:6px 10px;border-radius:6px;font-size:13px}
+    @media (max-width:720px){.brand h1{font-size:18px}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand">
+        <div class="logo">SG</div>
+        <div>
+          <h1>Shibuya Gang</h1>
+          <div class="muted">Private photo gallery — login required</div>
+        </div>
+      </div>
+      <div class="topbar">
+        <div id="welcome" class="muted"></div>
+        <button id="logoutBtn" class="text-link hidden">Logout</button>
+      </div>
+    </header>
+
+    <main class="card">
+      <section id="authSection">
+        <div style="flex:1;min-width:260px">
+          <h3 style="margin-bottom:10px">Login</h3>
+          <div class="form-row">
+            <label for="loginUser">Username</label>
+            <input id="loginUser" type="text" placeholder="yourname" />
+            <label for="loginPass">Password</label>
+            <input id="loginPass" type="password" placeholder="password" />
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button id="loginBtn">Login</button>
+            </div>
+            <div id="loginMsg" class="muted"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="appSection" class="hidden">
+        <div id="adminTools" class="hidden">
+          <div class="uploader">
+            <div style="flex:1">
+              <label class="muted">Upload photos from your device (Admin only)</label>
+              <input id="fileInput" type="file" accept="image/*" multiple />
+              <div class="muted" style="margin-top:6px">Files are stored locally in your browser (no server). Keep in mind localStorage limits.</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+              <div class="muted">Storage used: <span id="storageUsed">0</span> KB</div>
+              <button id="clearAll" class="text-link">Delete all photos</button>
+            </div>
+          </div>
+          <div id="userList" class="hidden">
+            <h3>Logged in users</h3>
+            <ul id="userListItems"></ul>
+          </div>
+        </div>
+
+        <div id="gallery" class="gallery"></div>
+        <footer>Shibuya Gang • Local-only demo — for production use add a backend and proper security.</footer>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const qs = (s)=>document.querySelector(s);
+    const loginUser = qs('#loginUser'), loginPass = qs('#loginPass'), loginBtn = qs('#loginBtn');
+    const authSection = qs('#authSection'), appSection = qs('#appSection');
+    const loginMsg = qs('#loginMsg');
+    const welcome = qs('#welcome'), logoutBtn = qs('#logoutBtn');
+
+    const fileInput = qs('#fileInput'), gallery = qs('#gallery'), storageUsed = qs('#storageUsed'), clearAll = qs('#clearAll');
+    const adminTools = qs('#adminTools');
+    const userListDiv = qs('#userList');
+    const userListItems = qs('#userListItems');
+
+    const SESSION_KEY = 'sg_session_v1';
+    const LOGS_KEY = 'sg_logs_v1';
+
+    // Fixed admin credentials
+    const ADMIN_USER = 'admin';
+    const ADMIN_PASS = 'gang123';
+
+    function getLoggedUsers(){try{return JSON.parse(localStorage.getItem(LOGS_KEY)||'[]')}catch(e){return []}}
+    function saveLoggedUsers(arr){localStorage.setItem(LOGS_KEY, JSON.stringify(arr))}
+
+    loginBtn.addEventListener('click', ()=>{
+      const user = loginUser.value.trim();
+      const pw = loginPass.value;
+      loginMsg.textContent='';
+      if(user===ADMIN_USER && pw===ADMIN_PASS){
+        localStorage.setItem(SESSION_KEY, user);
+        addToLogs(user);
+        showAppFor(user);
+        return;
+      }
+      if(!user || !pw){
+        loginMsg.textContent='Enter valid credentials';
+        return;
+      }
+      localStorage.setItem(SESSION_KEY, user);
+      addToLogs(user);
+      showAppFor(user);
+    });
+
+    function addToLogs(user){
+      const logs = getLoggedUsers();
+      if(!logs.includes(user)) logs.push(user);
+      saveLoggedUsers(logs);
+    }
+
+    function getSession(){return localStorage.getItem(SESSION_KEY)}
+    function logout(){localStorage.removeItem(SESSION_KEY); location.reload();}
+    logoutBtn.addEventListener('click', ()=>{logout();})
+
+    function imagesKey(){return `sg_images_v1_gallery`}
+    function getImages(){try{return JSON.parse(localStorage.getItem(imagesKey()) || '[]')}catch(e){return []}}
+    function saveImages(arr){localStorage.setItem(imagesKey(), JSON.stringify(arr))}
+
+    function showAppFor(user){
+      authSection.classList.add('hidden');
+      appSection.classList.remove('hidden');
+      welcome.textContent = `Hi, ${user}`;
+      logoutBtn.classList.remove('hidden');
+      if(user===ADMIN_USER){
+        adminTools.classList.remove('hidden');
+        userListDiv.classList.remove('hidden');
+        renderUserList();
+      } else {
+        adminTools.classList.add('hidden');
+      }
+      renderGallery(user);
+    }
+
+    function renderGallery(currentUser){
+      const imgs = getImages();
+      gallery.innerHTML='';
+      if(imgs.length===0) gallery.innerHTML='<div class="muted center" style="padding:24px">No photos yet.</div>';
+      imgs.slice().reverse().forEach(item=>{
+        const el = document.createElement('div'); el.className='thumb';
+        el.innerHTML = `
+          <img src="${item.data}" alt="${item.name}" />
+          <div class="meta">${new Date(item.added).toLocaleString()}</div>
+        `;
+        if(currentUser===ADMIN_USER){
+          const controls = document.createElement('div'); controls.style.position='absolute'; controls.style.top='8px'; controls.style.right='8px'; controls.style.display='flex'; controls.style.gap='6px';
+          const dl = document.createElement('button'); dl.className='text-link'; dl.textContent='Download'; dl.addEventListener('click', ()=>{
+            const a = document.createElement('a'); a.href = item.data; a.download = item.name || 'photo.png'; a.click();
+          });
+          const del = document.createElement('button'); del.className='text-link'; del.textContent='Delete'; del.addEventListener('click', ()=>{
+            if(!confirm('Delete this photo?')) return;
+            const arr = getImages().filter(i=>i.id!==item.id);
+            saveImages(arr); renderGallery(currentUser); updateStorageStats();
+          });
+          controls.appendChild(dl); controls.appendChild(del);
+          el.appendChild(controls);
+        }
+        gallery.appendChild(el);
+      });
+      updateStorageStats();
+    }
+
+    function updateStorageStats(){
+      const total = (localStorage.getItem(imagesKey())||'').length;
+      storageUsed.textContent = Math.round(total/1024);
+    }
+
+    fileInput.addEventListener('change', async (e)=>{
+      const user = getSession(); if(!user) return;
+      if(user!==ADMIN_USER){alert('Only admin can upload photos.'); return;}
+      const files = Array.from(e.target.files || []);
+      if(files.length===0) return;
+      const imgs = getImages();
+      for(const f of files){
+        if(!f.type.startsWith('image/')) continue;
+        const data = await readFileAsDataURL(f);
+        imgs.push({id:crypto.randomUUID(), name:f.name, data, added: Date.now()});
+      }
+      saveImages(imgs);
+      fileInput.value='';
+      renderGallery(user);
+    })
+
+    function readFileAsDataURL(file){return new Promise((res,rej)=>{const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file)})}
+
+    clearAll.addEventListener('click', ()=>{
+      const user = getSession(); if(!user) return;
+      if(user!==ADMIN_USER){alert('Only admin can clear photos.'); return;}
+      if(!confirm('Delete all photos permanently?')) return;
+      saveImages([]); renderGallery(user); updateStorageStats();
+    })
+
+    function renderUserList(){
+      const logs = getLoggedUsers();
+      userListItems.innerHTML='';
+      logs.forEach(u=>{
+        const li=document.createElement('li');
+        li.textContent=u;
+        userListItems.appendChild(li);
+      });
+    }
+
+    (function(){
+      const s = getSession();
+      if(s) showAppFor(s);
+    })();
+  </script>
+</body>
+</html>
